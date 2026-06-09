@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     role:     { type: String, enum: ['admin', 'member'], default: 'member' },
+    status:   { type: String, enum: ['pending', 'approved'], default: 'approved' },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date, default: null },
   },

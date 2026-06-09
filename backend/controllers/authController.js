@@ -1,3 +1,4 @@
+const { sendAdminApprovalEmail } = require('../utils/emailService');
 const User         = require('../models/User');
 const { generateToken } = require('../middleware/auth');
 const { AppError } = require('../middleware/errorHandler');
@@ -29,10 +30,28 @@ exports.register = asyncHandler(async (req, res) => {
 
   // First user ever → auto-admin
   const count        = await User.countDocuments();
-  const assignedRole = count === 0 ? 'admin' : (role || 'member');
+  let assignedRole = count === 0 ? 'admin' : (role || 'member');
+  let assignedStatus = count === 0 ? 'approved' : (role === 'admin' ? 'pending' : 'approved');
+  
+  const user = await User.create({ 
+    name, 
+    email, 
+    password, 
+    role: assignedRole,
+    status: assignedStatus 
+  });
 
-  const user = await User.create({ name, email, password, role: assignedRole });
-  console.log(`✅ [Auth] Register: ${email} (${assignedRole})`);
+  console.log(`✅ [Auth] Register: ${email} (${assignedRole}) - Status: ${assignedStatus}`);
+
+  if (assignedStatus === 'pending') {
+    await sendAdminApprovalEmail(user);
+    
+    return res.status(201).json({ 
+      success: true, 
+      message: "Registration successful! Your admin access request is pending approval." 
+    });
+  }
+
   sendToken(user, 201, res);
 });
 
@@ -44,6 +63,12 @@ exports.login = asyncHandler(async (req, res) => {
   if (!user || !(await user.matchPassword(password))) {
     throw new AppError('Invalid email or password', 401);
   }
+
+  // NEW: Check for pending status
+  if (user.status === 'pending') {
+    throw new AppError('Your account is awaiting admin approval', 403);
+  }
+
   if (!user.isActive) throw new AppError('Account deactivated', 403);
 
   user.lastLogin = new Date();
