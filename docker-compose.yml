@@ -1,0 +1,114 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TaskDash v3 — Production-grade docker-compose
+#
+# RAM budget (t2.micro = 1 GB):
+#   mongo    ~200 MB
+#   backend  ~100 MB
+#   frontend  ~25 MB (nginx static serving)
+#   OS/other ~300 MB
+#   Total    ~625 MB  ✓  (leaves ~375 MB headroom)
+#
+# Build tip for low-memory hosts:
+#   DOCKER_BUILDKIT=1 docker compose build --no-cache
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MongoDB ───────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7-jammy
+    container_name: taskdash-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: taskdb
+    volumes:
+      - mongo_data:/data/db
+    # Limit memory to protect t2.micro from OOM kill
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - taskdash
+
+  # ── Backend API ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: taskdash-backend:latest
+    container_name: taskdash-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV:          production
+      PORT:              5000
+      MONGO_URI:         mongodb://mongo:27017/taskdb
+      CORS_ORIGIN:       ${CORS_ORIGIN:-http://localhost:3000}
+      JWT_SECRET:        ${JWT_SECRET:-change_this_in_production_use_openssl_rand_hex_32}
+      JWT_EXPIRES_IN:    7d
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/MOCK/WEBHOOK/URL}
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - taskdash
+    # Expose only to internal network in production
+    # Remove port mapping below if using nginx proxy
+    ports:
+      - "5000:5000"
+
+  # ── Frontend (Vite build → Nginx) ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Empty string = Nginx proxies /api/* to backend internally (recommended)
+        # Set to http://your-ec2-ip:5000 if running frontend standalone
+        VITE_API_URL: ${VITE_API_URL:-}
+    image: taskdash-frontend:latest
+    container_name: taskdash-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - taskdash
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  taskdash:
+    driver: bridge
