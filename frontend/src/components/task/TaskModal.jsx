@@ -106,7 +106,7 @@ export default function TaskModal({ open, task, onClose, onSave }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Status</label>
-              <select className="input" value={form.status} onChange={(e) => set('status', e.target.value)}>
+              <select className="input bg-gray-800 text-white" value={form.status} onChange={(e) => set('status', e.target.value)}>
                 {Object.entries(STATUS_CFG).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
@@ -114,7 +114,7 @@ export default function TaskModal({ open, task, onClose, onSave }) {
             </div>
             <div>
               <label className="label">Priority</label>
-              <select className="input" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
+              <select className="input bg-gray-800 text-white" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
                 {Object.entries(PRIORITY_CFG).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
