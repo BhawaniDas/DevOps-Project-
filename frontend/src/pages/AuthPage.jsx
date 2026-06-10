@@ -2,15 +2,11 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 
-const ROLES = [
-  { value: 'member', icon: '👤', title: 'Member',  desc: 'Manage your own tasks' },
-  { value: 'admin',  icon: '👑', title: 'Admin',   desc: 'Full access + user mgmt' },
-];
 
 export default function AuthPage() {
   const { login, register } = useAuth();
   const [mode,     setMode]     = useState('login');
-  const [form,     setForm]     = useState({ name: '', email: '', password: '', confirm: '', role: 'member' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -32,7 +28,7 @@ export default function AuthPage() {
       if (mode === 'login') {
         await login(form.email, form.password);
       } else {
-        await register({ name: form.name, email: form.email, password: form.password, role: form.role });
+        await register({ name: form.name, email: form.email, password: form.password });
       }
     } catch (err) {
       setError(err.message);
@@ -158,27 +154,7 @@ export default function AuthPage() {
                       value={form.confirm} onChange={(e) => set('confirm', e.target.value)} />
                   </div>
                 </div>
-
-                {/* Role picker */}
-                <div>
-                  <label className="label">Role</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {ROLES.map((r) => (
-                      <button key={r.value} type="button"
-                        onClick={() => set('role', r.value)}
-                        className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all
-                          ${form.role === r.value
-                            ? 'bg-accent/12 border-accent/40 shadow-[0_0_16px_rgba(99,102,241,.15)]'
-                            : 'glass border-white/[0.07] hover:border-white/[0.15]'
-                          }`}
-                      >
-                        <span className="text-2xl">{r.icon}</span>
-                        <span className="text-sm font-bold text-white">{r.title}</span>
-                        <span className="text-[10px] text-slate-500 text-center">{r.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+           
               </motion.div>
             )}
           </AnimatePresence>
